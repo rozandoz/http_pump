@@ -1,3 +1,6 @@
 [submodule "cpp-httplib"]
 	path = cpp-httplib
 	url = https://github.com/yhirose/cpp-httplib.git
+[submodule "cpp-foundation"]
+	path = cpp-foundation
+	url = https://github.com/rozandoz/cpp-foundation.git
