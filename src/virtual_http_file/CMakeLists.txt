@@ -2,10 +2,12 @@ add_library(virtual_http_file "")
 
 target_link_libraries(virtual_http_file 
     httplib 
+    cppf
 )
 
 target_sources(virtual_http_file
   PRIVATE
+    http_downloader.cpp
     virtual_http_file.cpp
   )
 

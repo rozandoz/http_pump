@@ -12,7 +12,6 @@ class VirtualHttpFile
     const char *ContetnLengthKey = "Content-Length";
     const char *ContentTypKey = "Content-Type";
 
-    std::tuple<std::string, std::string> ParseUrl(const std::string &url);
     httplib::Headers CreateRangeHeaders(size_t offset, size_t size);
 
 public:

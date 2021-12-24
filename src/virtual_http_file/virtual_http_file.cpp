@@ -3,20 +3,10 @@
 #include <exception>
 #include <regex>
 
+#include "http_helper.h"
+
 using namespace std;
 using namespace httplib;
-
-tuple<string, string> VirtualHttpFile::ParseUrl(const string &url)
-{
-    const string url_regex = "^(?:(?:(([^:\\/#\\?]+:)?(?:(?:\\/\\/)(?:(?:(?:([^:@\\/#\\?]+)(?:\\:([^:@\\/#\\?]*))?)@)?(([^:\\/#\\?\\]\\[]+|\\[[^\\/\\]@#?]+\\])(?:\\:([0-9]+))?))?)?)?((?:\\/?(?:[^\\/\\?#]+\\/+)*)(?:[^\\?#]*)))?(\\?[^#]+)?)(#.*)?";
-
-    smatch match;
-    regex regex(url_regex);
-    if (regex_match(url, match, regex) && match.size() >= 9)
-        return tuple<string, string>(match[1], string(match[8]) + string(match[9]));
-
-    throw invalid_argument("url");
-}
 
 Headers VirtualHttpFile::CreateRangeHeaders(size_t offset, size_t size)
 {
