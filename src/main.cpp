@@ -8,11 +8,16 @@
 using namespace std;
 using namespace httplib;
 
+//#define DEBUG
+
 int main(int count, char **args)
 {
 
     try
     {
+
+        VirtualHttpFile file;
+
         cxxopts::Options options("http-pump", "http-pump");
 
         options.add_options()
@@ -30,7 +35,7 @@ int main(int count, char **args)
             exit(0);
         }
 
-        VirtualHttpFile file;
+#ifndef DEBUG
 
         VirtualHttpFile::Config config = {};
         config.Url = result["url"].as<string>();
@@ -38,7 +43,17 @@ int main(int count, char **args)
         config.CacheSize = result["cache"].as<size_t>();
         config.MaxThreads = result["treads"].as<size_t>();
 
+#else
+
+        VirtualHttpFile::Config config = {};
+        config.Url = "http://localhost:8080/dummy";
+        config.BlockSize = 16 * 1024 * 1024;
+        config.CacheSize = config.BlockSize * 20;
+        config.MaxThreads = 16;
+
         file.Open(config);
+
+#endif
 
         Server svr;
 
@@ -62,9 +77,6 @@ int main(int count, char **args)
                         [](bool success) {
                         });
                 });
-
-        svr.new_task_queue = []
-        { return new ThreadPool(1); };
 
         svr.listen("localhost", 8080);
     }
