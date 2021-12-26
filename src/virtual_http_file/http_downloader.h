@@ -32,6 +32,7 @@ public:
 
     void SetRequestCallback(const RequestCallback &callback) { request_callback_ = callback; }
     bool EnqueueRequest(const RangeRequest &range);
+    void CancellRequest() { request_cancel_event_.set(); }
 
 protected:
     void OnRequestsThread();

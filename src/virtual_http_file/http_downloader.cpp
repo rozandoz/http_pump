@@ -77,6 +77,9 @@ void HttpDownloader::OnRequestsThread()
                               return true;
                           });
 
+        if (request_cancel_event_.wait(chrono::milliseconds(0)))
+            cancelled = true;
+
         auto callback = request_callback_;
 
         if (callback)
