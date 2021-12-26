@@ -8,6 +8,11 @@
 using namespace std;
 using namespace httplib;
 
+constexpr size_t ToMBytes(size_t bytes)
+{
+    return bytes * 1024 * 1024;
+}
+
 //#define DEBUG
 
 int main(int count, char **args)
@@ -22,8 +27,8 @@ int main(int count, char **args)
 
         options.add_options()
         ("u,url", "Url", cxxopts::value<string>())
-        ("c,cache", "Overall cache size (bytes)", cxxopts::value<size_t>()->default_value("314572800"))
-        ("b,block", "Block size (bytes)", cxxopts::value<size_t>()->default_value("1048576"))
+        ("c,cache", "Overall cache size (MB)", cxxopts::value<size_t>()->default_value("300"))
+        ("b,block", "Block size (MB)", cxxopts::value<size_t>()->default_value("1"))
         ("t,treads", "Max threads", cxxopts::value<size_t>()->default_value("8"))
         ("h,help", "Print usage");
 
@@ -39,8 +44,8 @@ int main(int count, char **args)
 
         VirtualHttpFile::Config config = {};
         config.Url = result["url"].as<string>();
-        config.BlockSize = result["block"].as<size_t>();
-        config.CacheSize = result["cache"].as<size_t>();
+        config.BlockSize = ToMBytes(result["block"].as<size_t>());
+        config.CacheSize = ToMBytes(result["cache"].as<size_t>());
         config.MaxThreads = result["treads"].as<size_t>();
 
 #else
@@ -51,9 +56,9 @@ int main(int count, char **args)
         config.CacheSize = config.BlockSize * 20;
         config.MaxThreads = 16;
 
-        file.Open(config);
-
 #endif
+
+        file.Open(config);
 
         Server svr;
 
