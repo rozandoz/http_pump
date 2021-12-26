@@ -34,7 +34,7 @@ void VirtualHttpFile::Open(const Config &config)
         throw invalid_argument("block size");
     if (!config.CacheSize)
         throw invalid_argument("cache size");
-    if(config.BlockSize > config.CacheSize)
+    if (config.BlockSize > config.CacheSize)
         throw invalid_argument("block size cannot exceed cache size");
     if (!config.MaxThreads)
         throw invalid_argument("max threads");
@@ -101,7 +101,7 @@ std::vector<char> VirtualHttpFile::Read(size_t position, size_t size)
 
     block_number_ = block_number;
 
-    if (block_number_ != last_block_number_ + 1)
+    if (block_number_ != last_block_number_ && block_number_ != last_block_number_ + 1)
         ReleaseBlocks();
 
     last_block_number_ = block_number_;
@@ -126,7 +126,8 @@ std::vector<char> VirtualHttpFile::Read(size_t position, size_t size)
         vector<char> result(size_to_copy);
         memcpy(result.data(), block_ptr + block_offset, size_to_copy);
 
-        ReleaseBlock(block_number);
+        if (block_number)
+            ReleaseBlock(block_number - 1);
 
         return result;
     }
@@ -139,6 +140,7 @@ void VirtualHttpFile::ReleaseBlock(Block &block)
     if (block.Thread)
         block.Thread->CancellRequest();
 
+    block.Thread.reset();
     block.Buffer.reset();
 }
 
@@ -165,7 +167,6 @@ void VirtualHttpFile::ReleaseBlocks()
         ReleaseBlock(it->second);
 
     blocks_.clear();
-
 }
 
 void VirtualHttpFile::OnSchedulerThread()
@@ -196,6 +197,7 @@ void VirtualHttpFile::OnSchedulerThread()
             thread->EnqueueRequest(request);
 
             Block block = {};
+            block.Cancelled = false;
             block.Thread = thread;
 
             {
@@ -221,6 +223,7 @@ void VirtualHttpFile::OnRequestEnded(bool completed, const HttpDownloader::Range
         if (completed && !blocks_[block_number].Cancelled)
         {
             blocks_[block_number].Buffer = request.Buffer;
+            blocks_[block_number].Thread.reset();
             blocks_updated_event_.set();
         }
         else
