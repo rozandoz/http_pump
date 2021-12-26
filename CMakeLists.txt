@@ -15,4 +15,5 @@ include(CPack)
 
 add_subdirectory(cpp-httplib)
 add_subdirectory(cpp-foundation)
+add_subdirectory(cxxopts)
 add_subdirectory(src)

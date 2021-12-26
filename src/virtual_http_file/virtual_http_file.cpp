@@ -34,9 +34,10 @@ void VirtualHttpFile::Open(const Config &config)
         throw invalid_argument("block size");
     if (!config.CacheSize)
         throw invalid_argument("cache size");
+    if(config.BlockSize > config.CacheSize)
+        throw invalid_argument("block size cannot exceed cache size");
     if (!config.MaxThreads)
         throw invalid_argument("max threads");
-
     if (client_)
         throw runtime_error("file is already opened");
 
