@@ -7,6 +7,8 @@
 
 #include "http_helper.h"
 
+#include "plog/Log.h"
+
 using namespace std;
 using namespace cppf::memory;
 using namespace httplib;
@@ -62,7 +64,7 @@ void VirtualHttpFile::Open(const Config &config)
     else
         throw runtime_error(ContentTypKey);
 
-    printf("Threads count: %llu\n", config.MaxThreads);
+    PLOG_INFO << "Threads: " << config.MaxThreads;
 
     threads_allocator_ = blocking_allocator<HttpDownloader>::create(config.MaxThreads, [&]()
                                                                     {
@@ -79,7 +81,8 @@ void VirtualHttpFile::Open(const Config &config)
 
     auto buffers_count = static_cast<size_t>((config.CacheSize + config.BlockSize - 1) / config.BlockSize);
 
-    printf("Buffers count: %llu (%llu)\n", buffers_count, config.BlockSize);
+    PLOG_INFO << "Buffers: " << buffers_count;
+    PLOG_INFO << "Buffer size: " << config.BlockSize;
 
     memory_allocator_ = buffer_allocator::create<heap_buffer>(config.BlockSize, buffers_count);
     scheduler_thread_ = thread(bind(&VirtualHttpFile::OnSchedulerThread, this));
@@ -97,12 +100,15 @@ std::vector<char> VirtualHttpFile::Read(size_t position, size_t size)
 
     auto block_number = GetBlockNumber(position);
 
-    printf("READ: %lld => %lld\n", position, block_number);
+    PLOG_DEBUG << "READ " << position << " -> " << block_number;
 
     block_number_ = block_number;
 
     if (block_number_ != last_block_number_ && block_number_ != last_block_number_ + 1)
+    {
+        PLOG_DEBUG << "RELEASE ALL BlOCKS!";
         ReleaseBlocks();
+    }
 
     last_block_number_ = block_number_;
 
@@ -127,7 +133,10 @@ std::vector<char> VirtualHttpFile::Read(size_t position, size_t size)
         memcpy(result.data(), block_ptr + block_offset, size_to_copy);
 
         if (block_number)
+        {
+            PLOG_INFO << "RELEASE BLOCK: " << block_number - 1;
             ReleaseBlock(block_number - 1);
+        }
 
         return result;
     }
@@ -146,8 +155,6 @@ void VirtualHttpFile::ReleaseBlock(Block &block)
 
 void VirtualHttpFile::ReleaseBlock(size_t block_number)
 {
-    printf("RELEASE BLOCK #%lld\n", block_number);
-
     scoped_lock locker(blocks_mutex_);
 
     if (blocks_.count(block_number))
@@ -159,8 +166,6 @@ void VirtualHttpFile::ReleaseBlock(size_t block_number)
 
 void VirtualHttpFile::ReleaseBlocks()
 {
-    printf("RELEASE ALL BLOCKS\n");
-
     scoped_lock locker(blocks_mutex_);
 
     for (auto it = blocks_.begin(); it != blocks_.end(); ++it)
@@ -187,15 +192,7 @@ void VirtualHttpFile::OnSchedulerThread()
         {
             if (HasBlock(i))
                 continue;
-
-            printf("SCHEDULE: %llu\n", i);
-
-            HttpDownloader::RangeRequest request = {};
-            request.Buffer = buffer;
-            request.Range = {i * config_.BlockSize, config_.BlockSize};
-
-            thread->EnqueueRequest(request);
-
+          
             Block block = {};
             block.Cancelled = false;
             block.Thread = thread;
@@ -204,6 +201,14 @@ void VirtualHttpFile::OnSchedulerThread()
                 scoped_lock lock(blocks_mutex_);
                 blocks_[i] = block;
             }
+
+            HttpDownloader::RangeRequest request = {};
+            request.Buffer = buffer;
+            request.Range = {i * config_.BlockSize, config_.BlockSize};
+
+            thread->EnqueueRequest(request);
+
+            PLOG_DEBUG << "BLOCK: " << i << " - SCHEDULED";
 
             break;
         }
@@ -214,8 +219,6 @@ void VirtualHttpFile::OnRequestEnded(bool completed, const HttpDownloader::Range
 {
     auto block_number = GetBlockNumber(request.Range.first);
 
-    printf("ENDED: %llu (%d)\n", block_number, completed);
-
     lock_guard<mutex> locker(blocks_mutex_);
 
     if (blocks_.count(block_number))
@@ -225,11 +228,19 @@ void VirtualHttpFile::OnRequestEnded(bool completed, const HttpDownloader::Range
             blocks_[block_number].Buffer = request.Buffer;
             blocks_[block_number].Thread.reset();
             blocks_updated_event_.set();
+
+           PLOG_DEBUG << "BLOCK: " << block_number << " - OK";
         }
         else
         {
+            PLOG_DEBUG << "BLOCK: " << block_number << " - CANCELLED";
+
             blocks_.erase(block_number);
         }
+    }
+    else
+    {
+        PLOG_DEBUG << "BLOCK: " << block_number << " - NO ENTRY";
     }
 }
 

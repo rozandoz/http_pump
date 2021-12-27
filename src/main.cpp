@@ -3,6 +3,11 @@
 
 #include "httplib.h"
 #include "cxxopts.hpp"
+
+#include "plog/Log.h"
+#include "plog/Appenders/ColorConsoleAppender.h"
+#include "plog/Appenders/RollingFileAppender.h"
+
 #include "virtual_http_file.h"
 
 using namespace std;
@@ -13,13 +18,18 @@ constexpr size_t ToMBytes(size_t bytes)
     return bytes * 1024 * 1024;
 }
 
-//#define DEBUG
+#define DEBUG
 
 int main(int count, char **args)
 {
-
     try
     {
+        static plog::ColorConsoleAppender<plog::TxtFormatter> consoleAppender;
+        static plog::RollingFileAppender<plog::TxtFormatter> fileAppeder("log.txt");
+
+        plog::init(plog::debug).addAppender(&consoleAppender).addAppender(&fileAppeder);
+
+        PLOG_INFO << "-----------------------------------------------";
 
         VirtualHttpFile file;
 
@@ -64,6 +74,9 @@ int main(int count, char **args)
 
         svr.Get("/stream", [&](const Request &req, Response &res)
                 {
+                    if(req.has_header("Range"))
+                        PLOG_DEBUG << "--- Range request: " << req.get_header_value("Range");
+
                     res.set_content_provider(
                         file.size(),
                         file.type().c_str(),
@@ -83,10 +96,10 @@ int main(int count, char **args)
                         });
                 });
 
-        svr.listen("localhost", 8080);
+        svr.listen("0.0.0.0", 8080);
     }
     catch (const exception &error)
     {
-        cout << error.what() << endl;
+        PLOG_FATAL << error.what();
     }
 }

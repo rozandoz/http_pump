@@ -6,4 +6,5 @@ target_link_libraries(http_pump
     virtual_http_file
     httplib
     cxxopts
+    plog
 )

@@ -7,3 +7,6 @@
 [submodule "cxxopts"]
 	path = cxxopts
 	url = https://github.com/jarro2783/cxxopts.git
+[submodule "plog"]
+	path = plog
+	url = https://github.com/SergiusTheBest/plog.git

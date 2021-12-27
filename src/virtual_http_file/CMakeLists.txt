@@ -3,6 +3,7 @@ add_library(virtual_http_file "")
 target_link_libraries(virtual_http_file 
     httplib 
     cppf
+    plog
 )
 
 target_sources(virtual_http_file
