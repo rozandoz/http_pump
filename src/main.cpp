@@ -96,6 +96,7 @@ int main(int count, char **args)
                         });
                 });
 
+        svr.new_task_queue = [] { return new ThreadPool(1); };
         svr.listen("0.0.0.0", 8080);
     }
     catch (const exception &error)
