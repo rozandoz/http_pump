@@ -15,24 +15,39 @@
 class HttpDownloader
 {
 public:
-    struct RangeRequest
+    class RangeRequest
     {
-        std::pair<size_t, size_t> Range;
-        std::shared_ptr<cppf::memory::buffer> Buffer;
+        friend class HttpDownloader;
+
+    public:
+        RangeRequest(const std::shared_ptr<cppf::memory::buffer> &buffer, const std::pair<size_t, size_t> &range);
+        RangeRequest(const RangeRequest &request);
+
+        std::shared_ptr<cppf::memory::buffer> buffer() const { return buffer_; }
+        std::pair<size_t, size_t> range() const { return range_; }
+        std::shared_ptr<cppf::threading::blocking_event> cancel_event() const { return cancel_event_; }
+        
+        const bool is_cancelled() const {return cancel_event_->wait(std::chrono::milliseconds(0)); }
+
+    private:
+        RangeRequest() = default;
+
+        std::shared_ptr<cppf::threading::blocking_event> cancel_event_;
+        std::shared_ptr<cppf::memory::buffer> buffer_;
+        std::pair<size_t, size_t> range_;
     };
 
-    typedef std::function<void(bool completed, const RangeRequest &request)> RequestCallback;
+    typedef std::function<void(const RangeRequest &request)> RequestCallback;
 
 private:
     httplib::Headers CreateRangeHeaders(size_t offset, size_t size);
 
 public:
-    explicit HttpDownloader(const std::shared_ptr<httplib::Client>& client, const std::string &path);
+    explicit HttpDownloader(const std::shared_ptr<httplib::Client> &client, const std::string &path);
     virtual ~HttpDownloader();
 
     void SetRequestCallback(const RequestCallback &callback) { request_callback_ = callback; }
     bool EnqueueRequest(const RangeRequest &range);
-    void CancellRequest() { request_cancel_event_.set(); }
 
 protected:
     void OnRequestsThread();

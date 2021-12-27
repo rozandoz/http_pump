@@ -80,6 +80,8 @@
         "bit": "cpp",
         "clocale": "cpp",
         "forward_list": "cpp",
-        "stop_token": "cpp"
+        "stop_token": "cpp",
+        "cstdarg": "cpp",
+        "filesystem": "cpp"
     }
 }

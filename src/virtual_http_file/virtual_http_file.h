@@ -26,7 +26,7 @@ class VirtualHttpFile
     {
         std::shared_ptr<cppf::memory::buffer> Buffer;
         std::shared_ptr<HttpDownloader> Thread;
-        bool Cancelled;
+        std::shared_ptr<cppf::threading::blocking_event> CancelEvent;
     };
 
 public:
@@ -52,7 +52,7 @@ protected:
     void ReleaseBlocks();
 
     void OnSchedulerThread();
-    void OnRequestEnded(bool completed, const HttpDownloader::RangeRequest& request);
+    void OnRequestEnded(const HttpDownloader::RangeRequest& request);
 
 private:
     bool HasBlock(size_t block_number);

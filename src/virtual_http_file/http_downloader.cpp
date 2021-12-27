@@ -7,7 +7,24 @@
 
 using namespace std;
 using namespace cppf::memory;
+using namespace cppf::threading;
 using namespace httplib;
+
+HttpDownloader::RangeRequest::RangeRequest(const shared_ptr<cppf::memory::buffer> &buffer, const pair<size_t, size_t> &range)
+    : cancel_event_(make_shared<blocking_event>(false, false)),
+      buffer_(buffer),
+      range_(range)
+{
+    if (!buffer)
+        throw std::invalid_argument("buffer");
+}
+
+HttpDownloader::RangeRequest::RangeRequest(const RangeRequest &request)
+    : cancel_event_(request.cancel_event()),
+      buffer_(request.buffer()),
+      range_(request.range())
+{
+}
 
 Headers HttpDownloader::CreateRangeHeaders(size_t offset, size_t size)
 {
@@ -41,9 +58,6 @@ HttpDownloader::~HttpDownloader()
 
 bool HttpDownloader::EnqueueRequest(const RangeRequest &range)
 {
-    if (!range.Buffer)
-        throw runtime_error("buffer not set");
-
     return requests_queue_.try_push(range, chrono::milliseconds(0));
 }
 
@@ -55,34 +69,32 @@ void HttpDownloader::OnRequestsThread()
         if (!requests_queue_.try_pop(request))
             continue;
 
-        auto cancelled = false;
-        auto buffer = request.Buffer;
+        auto buffer = request.buffer();
+        auto range = request.range();
+        auto cancel_event = request.cancel_event();
 
         buffer->actual_size(0);
 
-        auto header = CreateRangeHeaders(request.Range.first, request.Range.second);
-        http_client_->Get(http_path_.c_str(), header, [&](const char *data, size_t size)
-                          {
-                              if (request_cancel_event_.wait(chrono::milliseconds(0)))
+        if (!request.is_cancelled())
+        {
+            auto header = CreateRangeHeaders(range.first, range.second);
+            http_client_->Get(http_path_.c_str(), header, [&](const char *data, size_t size)
                               {
-                                  cancelled = true;
-                                  return false;
-                              }
+                                  if (request.is_cancelled())
+                                      return false;
 
-                              auto actual_size = buffer->actual_size();
-                              auto size_to_copy = min(buffer->max_size() - actual_size, size);
-                              memcpy(static_cast<char *>(buffer->ptr()) + actual_size, data, size_to_copy);
-                              buffer->actual_size(actual_size + size_to_copy);
+                                  auto actual_size = buffer->actual_size();
+                                  auto size_to_copy = min(buffer->max_size() - actual_size, size);
+                                  memcpy(static_cast<char *>(buffer->ptr()) + actual_size, data, size_to_copy);
+                                  buffer->actual_size(actual_size + size_to_copy);
 
-                              return true;
-                          });
-
-        if (request_cancel_event_.wait(chrono::milliseconds(0)))
-            cancelled = true;
+                                  return true;
+                              });
+        }
 
         auto callback = request_callback_;
 
         if (callback)
-            callback(!cancelled, request);
+            callback(request);
     }
 }

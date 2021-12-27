@@ -72,8 +72,7 @@ void VirtualHttpFile::Open(const Config &config)
                                                                         auto downloader = new HttpDownloader(client, path_);
                                                                         auto callback = bind(&VirtualHttpFile::OnRequestEnded,
                                                                                              this,
-                                                                                             placeholders::_1,
-                                                                                             placeholders::_2);
+                                                                                             placeholders::_1);
 
                                                                         downloader->SetRequestCallback(callback);
                                                                         return downloader;
@@ -144,11 +143,9 @@ std::vector<char> VirtualHttpFile::Read(size_t position, size_t size)
 
 void VirtualHttpFile::ReleaseBlock(Block &block)
 {
-    block.Cancelled = true;
+    block.CancelEvent->set();
 
-    if (block.Thread)
-        block.Thread->CancellRequest();
-
+    block.CancelEvent.reset();
     block.Thread.reset();
     block.Buffer.reset();
 }
@@ -192,19 +189,17 @@ void VirtualHttpFile::OnSchedulerThread()
         {
             if (HasBlock(i))
                 continue;
-          
+
+            HttpDownloader::RangeRequest request(buffer, make_pair(i * config_.BlockSize, config_.BlockSize));
+
             Block block = {};
-            block.Cancelled = false;
             block.Thread = thread;
+            block.CancelEvent = request.cancel_event();
 
             {
                 scoped_lock lock(blocks_mutex_);
                 blocks_[i] = block;
             }
-
-            HttpDownloader::RangeRequest request = {};
-            request.Buffer = buffer;
-            request.Range = {i * config_.BlockSize, config_.BlockSize};
 
             thread->EnqueueRequest(request);
 
@@ -215,21 +210,21 @@ void VirtualHttpFile::OnSchedulerThread()
     }
 }
 
-void VirtualHttpFile::OnRequestEnded(bool completed, const HttpDownloader::RangeRequest &request)
+void VirtualHttpFile::OnRequestEnded(const HttpDownloader::RangeRequest &request)
 {
-    auto block_number = GetBlockNumber(request.Range.first);
+    auto block_number = GetBlockNumber(request.range().first);
 
     lock_guard<mutex> locker(blocks_mutex_);
 
     if (blocks_.count(block_number))
     {
-        if (completed && !blocks_[block_number].Cancelled)
+        if (!request.is_cancelled())
         {
-            blocks_[block_number].Buffer = request.Buffer;
+            blocks_[block_number].Buffer = request.buffer();
             blocks_[block_number].Thread.reset();
             blocks_updated_event_.set();
 
-           PLOG_DEBUG << "BLOCK: " << block_number << " - OK";
+            PLOG_DEBUG << "BLOCK: " << block_number << " - OK";
         }
         else
         {
