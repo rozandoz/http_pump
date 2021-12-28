@@ -1,13 +1,13 @@
 #pragma once
 
-#include <string>
-#include <tuple>
-#include <memory>
-#include <vector>
-#include <thread>
 #include <atomic>
-#include <mutex>
 #include <map>
+#include <memory>
+#include <mutex>
+#include <string>
+#include <thread>
+#include <tuple>
+#include <vector>
 
 #include "cppf/memory/buffer_allocator.h"
 #include "cppf/threading/blocking_event.h"
@@ -22,7 +22,7 @@ class VirtualHttpFile
 
     httplib::Headers CreateRangeHeaders(size_t offset, size_t size);
 
-    struct Block 
+    struct Block
     {
         std::shared_ptr<cppf::memory::buffer> Buffer;
         std::shared_ptr<HttpDownloader> Thread;
@@ -52,7 +52,7 @@ protected:
     void ReleaseBlocks();
 
     void OnSchedulerThread();
-    void OnRequestEnded(const HttpDownloader::RangeRequest& request);
+    void OnRequestEnded(const HttpDownloader::RangeRequest &request);
 
 private:
     bool HasBlock(size_t block_number);
@@ -65,7 +65,7 @@ private:
     std::string path_;
     std::string type_;
     size_t size_;
-    
+
     std::shared_ptr<httplib::Client> client_;
 
     std::shared_ptr<cppf::memory::buffer_allocator> memory_allocator_;

@@ -1,16 +1,16 @@
 #pragma once
 
-#include <thread>
 #include <atomic>
-#include <string>
-#include <memory>
 #include <functional>
+#include <memory>
+#include <string>
+#include <thread>
 
 #include "httplib.h"
 
-#include "cppf/threading/blocking_event.h"
 #include "cppf/memory/blocking_queue.h"
 #include "cppf/memory/buffer.h"
+#include "cppf/threading/blocking_event.h"
 
 class HttpDownloader
 {
@@ -20,14 +20,21 @@ public:
         friend class HttpDownloader;
 
     public:
-        RangeRequest(const std::shared_ptr<cppf::memory::buffer> &buffer, const std::pair<size_t, size_t> &range);
+        RangeRequest(const std::shared_ptr<cppf::memory::buffer> &buffer,
+                     const std::pair<size_t, size_t> &range);
         RangeRequest(const RangeRequest &request);
 
         std::shared_ptr<cppf::memory::buffer> buffer() const { return buffer_; }
         std::pair<size_t, size_t> range() const { return range_; }
-        std::shared_ptr<cppf::threading::blocking_event> cancel_event() const { return cancel_event_; }
-        
-        const bool is_cancelled() const {return cancel_event_->wait(std::chrono::milliseconds(0)); }
+        std::shared_ptr<cppf::threading::blocking_event> cancel_event() const
+        {
+            return cancel_event_;
+        }
+
+        const bool is_cancelled() const
+        {
+            return cancel_event_->wait(std::chrono::milliseconds(0));
+        }
 
     private:
         RangeRequest() = default;
@@ -43,7 +50,8 @@ private:
     httplib::Headers CreateRangeHeaders(size_t offset, size_t size);
 
 public:
-    explicit HttpDownloader(const std::shared_ptr<httplib::Client> &client, const std::string &path);
+    explicit HttpDownloader(const std::shared_ptr<httplib::Client> &client,
+                            const std::string &path);
     virtual ~HttpDownloader();
 
     void SetRequestCallback(const RequestCallback &callback) { request_callback_ = callback; }

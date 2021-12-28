@@ -1,0 +1,20 @@
+BasedOnStyle: Microsoft
+AccessModifierOffset: -4
+ColumnLimit: 100
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortLambdasOnASingleLine: All
+AllowShortIfStatementsOnASingleLine: WithoutElse
+BreakConstructorInitializers: BeforeComma
+AllowAllParametersOfDeclarationOnNextLine: false
+BinPackArguments: false
+BinPackParameters: false
+
+# BasedOnStyle: Google
+# AccessModifierOffset: -2
+# ConstructorInitializerAllOnOneLineOrOnePerLine: false
+# AllowAllParametersOfDeclarationOnNextLine: false
+# AllowShortLoopsOnASingleLine: false
+# BreakConstructorInitializers: BeforeComma
+# BinPackArguments: false
+# BinPackParameters: false
+# IncludeBlocks: Preserve

@@ -2,8 +2,8 @@
 
 #include <exception>
 #include <functional>
-#include <regex>
 #include <math.h>
+#include <regex>
 
 #include "http_helper.h"
 
@@ -24,24 +24,22 @@ Headers VirtualHttpFile::CreateRangeHeaders(size_t offset, size_t size)
 }
 
 VirtualHttpFile::VirtualHttpFile()
-    : size_(0), blocks_updated_event_(false, true), block_number_(0), last_block_number_(0)
+    : size_(0)
+    , blocks_updated_event_(false, true)
+    , block_number_(0)
+    , last_block_number_(0)
 {
 }
 
 void VirtualHttpFile::Open(const Config &config)
 {
-    if (config.Url.empty())
-        throw invalid_argument("url");
-    if (!config.BlockSize)
-        throw invalid_argument("block size");
-    if (!config.CacheSize)
-        throw invalid_argument("cache size");
+    if (config.Url.empty()) throw invalid_argument("url");
+    if (!config.BlockSize) throw invalid_argument("block size");
+    if (!config.CacheSize) throw invalid_argument("cache size");
     if (config.BlockSize > config.CacheSize)
         throw invalid_argument("block size cannot exceed cache size");
-    if (!config.MaxThreads)
-        throw invalid_argument("max threads");
-    if (client_)
-        throw runtime_error("file is already opened");
+    if (!config.MaxThreads) throw invalid_argument("max threads");
+    if (client_) throw runtime_error("file is already opened");
 
     auto url_parts = ParseUrl(config.Url);
     client_ = make_shared<Client>(get<0>(url_parts));
@@ -49,8 +47,7 @@ void VirtualHttpFile::Open(const Config &config)
 
     auto result = client_->Head(path_.c_str());
 
-    if (!result)
-        throw runtime_error(to_string(result.error()));
+    if (!result) throw runtime_error(to_string(result.error()));
 
     auto res = result.value();
 
@@ -66,19 +63,17 @@ void VirtualHttpFile::Open(const Config &config)
 
     PLOG_INFO << "Threads: " << config.MaxThreads;
 
-    threads_allocator_ = blocking_allocator<HttpDownloader>::create(config.MaxThreads, [&]()
-                                                                    {
-                                                                        auto client = make_shared<Client>(get<0>(url_parts));
-                                                                        auto downloader = new HttpDownloader(client, path_);
-                                                                        auto callback = bind(&VirtualHttpFile::OnRequestEnded,
-                                                                                             this,
-                                                                                             placeholders::_1);
+    threads_allocator_ = blocking_allocator<HttpDownloader>::create(config.MaxThreads, [&]() {
+        auto client = make_shared<Client>(get<0>(url_parts));
+        auto downloader = new HttpDownloader(client, path_);
+        auto callback = bind(&VirtualHttpFile::OnRequestEnded, this, placeholders::_1);
 
-                                                                        downloader->SetRequestCallback(callback);
-                                                                        return downloader;
-                                                                    });
+        downloader->SetRequestCallback(callback);
+        return downloader;
+    });
 
-    auto buffers_count = static_cast<size_t>((config.CacheSize + config.BlockSize - 1) / config.BlockSize);
+    auto buffers_count =
+        static_cast<size_t>((config.CacheSize + config.BlockSize - 1) / config.BlockSize);
 
     PLOG_INFO << "Buffers: " << buffers_count;
     PLOG_INFO << "Buffer size: " << config.BlockSize;
@@ -91,11 +86,9 @@ void VirtualHttpFile::Open(const Config &config)
 
 std::vector<char> VirtualHttpFile::Read(size_t position, size_t size)
 {
-    if (!client_)
-        throw invalid_argument("file must be opened first");
+    if (!client_) throw invalid_argument("file must be opened first");
 
-    if (position >= size_)
-        throw invalid_argument("offset");
+    if (position >= size_) throw invalid_argument("offset");
 
     auto block_number = GetBlockNumber(position);
 
@@ -176,21 +169,19 @@ void VirtualHttpFile::OnSchedulerThread()
     while (true)
     {
         shared_ptr<buffer> buffer;
-        if (!memory_allocator_->try_get(buffer))
-            break;
+        if (!memory_allocator_->try_get(buffer)) break;
 
         shared_ptr<HttpDownloader> thread;
-        if (!threads_allocator_->try_get(thread))
-            break;
+        if (!threads_allocator_->try_get(thread)) break;
 
         auto block_number = block_number_.load();
 
         for (auto i = block_number;; i++)
         {
-            if (HasBlock(i))
-                continue;
+            if (HasBlock(i)) continue;
 
-            HttpDownloader::RangeRequest request(buffer, make_pair(i * config_.BlockSize, config_.BlockSize));
+            HttpDownloader::RangeRequest request(
+                buffer, make_pair(i * config_.BlockSize, config_.BlockSize));
 
             Block block = {};
             block.Thread = thread;

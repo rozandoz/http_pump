@@ -1,12 +1,12 @@
 #include <iostream>
 #include <math.h>
 
-#include "httplib.h"
 #include "cxxopts.hpp"
+#include "httplib.h"
 
-#include "plog/Log.h"
 #include "plog/Appenders/ColorConsoleAppender.h"
 #include "plog/Appenders/RollingFileAppender.h"
+#include "plog/Log.h"
 
 #include "virtual_http_file.h"
 
@@ -35,12 +35,12 @@ int main(int count, char **args)
 
         cxxopts::Options options("http-pump", "http-pump");
 
-        options.add_options()
-        ("u,url", "Url", cxxopts::value<string>())
-        ("c,cache", "Overall cache size (MB)", cxxopts::value<size_t>()->default_value("300"))
-        ("b,block", "Block size (MB)", cxxopts::value<size_t>()->default_value("1"))
-        ("t,treads", "Max threads", cxxopts::value<size_t>()->default_value("8"))
-        ("h,help", "Print usage");
+        auto op = options.add_options();
+        op("u,url", "Url", cxxopts::value<string>());
+        op("c,cache", "Overall cache size (MB)", cxxopts::value<size_t>()->default_value("300"));
+        op("b,block", "Block size (MB)", cxxopts::value<size_t>()->default_value("1"));
+        op("t,treads", "Max threads", cxxopts::value<size_t>()->default_value("8"));
+        op("h,help", "Print usage");
 
         auto result = options.parse(count, args);
 
@@ -72,29 +72,26 @@ int main(int count, char **args)
 
         Server svr;
 
-        svr.Get("/stream", [&](const Request &req, Response &res)
-                {
-                    if(req.has_header("Range"))
-                        PLOG_DEBUG << "--- Range request: " << req.get_header_value("Range");
+        svr.Get("/stream", [&](const Request &req, Response &res) {
+            if (req.has_header("Range"))
+                PLOG_DEBUG << "--- Range request: " << req.get_header_value("Range");
 
-                    res.set_content_provider(
-                        file.size(),
-                        file.type().c_str(),
-                        [&](size_t offset, size_t length, DataSink &sink)
-                        {
-                            auto buff = file.Read(offset, config.BlockSize);
+            res.set_content_provider(
+                file.size(),
+                file.type().c_str(),
+                [&](size_t offset, size_t length, DataSink &sink) {
+                    auto buff = file.Read(offset, config.BlockSize);
 
-                            if (!buff.empty())
-                            {
-                                sink.write(buff.data(), buff.size());
-                                return true;
-                            }
+                    if (!buff.empty())
+                    {
+                        sink.write(buff.data(), buff.size());
+                        return true;
+                    }
 
-                            return false;
-                        },
-                        [](bool success) {
-                        });
-                });
+                    return false;
+                },
+                [](bool success) {});
+        });
 
         svr.new_task_queue = [] { return new ThreadPool(1); };
         svr.listen("0.0.0.0", 8080);
