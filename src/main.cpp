@@ -18,37 +18,42 @@ constexpr size_t ToMBytes(size_t bytes)
     return bytes * 1024 * 1024;
 }
 
-#define DEBUG
+void InitLogger()
+{
+    static plog::ColorConsoleAppender<plog::TxtFormatter> consoleAppender;
+    static plog::RollingFileAppender<plog::TxtFormatter> fileAppeder("log.txt");
+
+    plog::init(plog::debug).addAppender(&consoleAppender).addAppender(&fileAppeder);
+}
+
+//#define DEBUG
 
 int main(int count, char **args)
 {
     try
     {
-        static plog::ColorConsoleAppender<plog::TxtFormatter> consoleAppender;
-        static plog::RollingFileAppender<plog::TxtFormatter> fileAppeder("log.txt");
-
-        plog::init(plog::debug).addAppender(&consoleAppender).addAppender(&fileAppeder);
-
-        PLOG_INFO << "-----------------------------------------------";
-
-        VirtualHttpFile file;
-
         cxxopts::Options options("http-pump", "http-pump");
 
-        auto op = options.add_options();
-        op("u,url", "Url", cxxopts::value<string>());
-        op("c,cache", "Overall cache size (MB)", cxxopts::value<size_t>()->default_value("300"));
-        op("b,block", "Block size (MB)", cxxopts::value<size_t>()->default_value("1"));
-        op("t,treads", "Max threads", cxxopts::value<size_t>()->default_value("8"));
-        op("h,help", "Print usage");
+        auto adder = options.add_options();
+        adder("u,url", "Url", cxxopts::value<string>());
+        adder("c,cache", "Overall cache size (MB)", cxxopts::value<size_t>()->default_value("300"));
+        adder("b,block", "Block size (MB)", cxxopts::value<size_t>()->default_value("1"));
+        adder("t,treads", "Max threads", cxxopts::value<size_t>()->default_value("8"));
+        adder("h,help", "Print usage");
 
         auto result = options.parse(count, args);
 
         if (result.count("help"))
         {
-            cout << options.help() << std::endl;
-            exit(0);
+            cout << options.help();
+            return 0;
         }
+
+        InitLogger();
+
+        PLOG_INFO << "-----------------------------------------------";
+
+        VirtualHttpFile file;
 
 #ifndef DEBUG
 
@@ -70,11 +75,15 @@ int main(int count, char **args)
 
         file.Open(config);
 
+        PLOG_INFO << "Url: " << config.Url;
+        PLOG_INFO << "Type: " << file.type();
+        PLOG_INFO << "Size: " << file.size();
+
         Server svr;
 
         svr.Get("/stream", [&](const Request &req, Response &res) {
             if (req.has_header("Range"))
-                PLOG_DEBUG << "--- Range request: " << req.get_header_value("Range");
+                PLOG_DEBUG << "Range request: " << req.get_header_value("Range");
 
             res.set_content_provider(
                 file.size(),
@@ -100,4 +109,6 @@ int main(int count, char **args)
     {
         PLOG_FATAL << error.what();
     }
+
+    return 0;
 }

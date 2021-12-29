@@ -13,6 +13,11 @@ using namespace std;
 using namespace cppf::memory;
 using namespace httplib;
 
+inline std::string GetBlockLog(size_t number, const std::string &action)
+{
+    return "Block: " + to_string(number) + " --- " + action;
+}
+
 void VirtualHttpFile::Config::Validate() const
 {
     if (Url.empty()) throw invalid_argument("url");
@@ -67,8 +72,7 @@ void VirtualHttpFile::Open(const Config &config)
 
     auto buffers_count = (size_t)(config.CacheSize + config.BlockSize - 1) / config.BlockSize;
 
-    PLOG_INFO << "Buffers: " << buffers_count;
-    PLOG_INFO << "Buffer size: " << config.BlockSize;
+    PLOG_INFO << "Buffers: " << buffers_count << " (" << config.BlockSize << ")";
 
     memory_allocator_ = buffer_allocator::create<heap_buffer>(config.BlockSize, buffers_count);
     scheduler_thread_ = thread(bind(&VirtualHttpFile::OnSchedulerThread, this));
@@ -83,14 +87,14 @@ std::vector<char> VirtualHttpFile::Read(size_t position, size_t size)
 
     auto block_number = GetBlockNumber(position);
 
-    PLOG_DEBUG << "READ " << position << " -> " << block_number;
+    PLOG_DEBUG << "Read data: " << position << " ==> " << block_number;
 
     block_number_ = block_number;
 
     if (block_number_ != last_block_number_ && block_number_ != last_block_number_ + 1)
     {
-        PLOG_DEBUG << "RELEASE ALL BlOCKS!";
         ReleaseBlocks();
+        PLOG_DEBUG << "Cache cleared!";
     }
 
     last_block_number_ = block_number_;
@@ -117,8 +121,8 @@ std::vector<char> VirtualHttpFile::Read(size_t position, size_t size)
 
         if (block_number)
         {
-            PLOG_INFO << "RELEASE BLOCK: " << block_number - 1;
             ReleaseBlock(block_number - 1);
+            PLOG_DEBUG << GetBlockLog(block_number - 1, "cleared");
         }
 
         return result;
@@ -184,8 +188,7 @@ void VirtualHttpFile::OnSchedulerThread()
             }
 
             thread->EnqueueRequest(request);
-
-            PLOG_DEBUG << "BLOCK: " << i << " - SCHEDULED";
+            PLOG_DEBUG << GetBlockLog(i, "scheduled");
 
             break;
         }
@@ -205,19 +208,17 @@ void VirtualHttpFile::OnRequestEnded(const HttpDownloader::RangeRequest &request
             blocks_[block_number].Buffer = request.buffer();
             blocks_[block_number].Thread.reset();
             blocks_updated_event_.set();
-
-            PLOG_DEBUG << "BLOCK: " << block_number << " - OK";
+            PLOG_DEBUG << GetBlockLog(block_number, "ok");
         }
         else
         {
-            PLOG_DEBUG << "BLOCK: " << block_number << " - CANCELLED";
-
             blocks_.erase(block_number);
+            PLOG_DEBUG << GetBlockLog(block_number, "cancelled");
         }
     }
     else
     {
-        PLOG_DEBUG << "BLOCK: " << block_number << " - NO ENTRY";
+        PLOG_DEBUG << GetBlockLog(block_number, "missed");
     }
 }
 
