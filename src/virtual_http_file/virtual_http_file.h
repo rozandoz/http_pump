@@ -62,7 +62,6 @@ private:
 
     Config config_;
 
-    std::string path_;
     std::string type_;
     size_t size_;
 

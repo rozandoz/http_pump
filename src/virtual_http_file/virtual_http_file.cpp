@@ -37,10 +37,8 @@ void VirtualHttpFile::Open(const Config &config)
     if (client_) throw runtime_error("file is already opened");
 
     auto url_parts = ParseUrl(config.Url);
-    client_ = make_shared<Client>(get<0>(url_parts));
-    path_ = get<1>(url_parts);
-
-    auto result = client_->Head(path_.c_str());
+    client_ = make_shared<Client>(url_parts.FullHost);
+    auto result = client_->Head(url_parts.FullPath.c_str());
 
     if (!result) throw runtime_error(to_string(result.error()));
 
@@ -59,8 +57,8 @@ void VirtualHttpFile::Open(const Config &config)
     PLOG_INFO << "Threads: " << config.MaxThreads;
 
     threads_allocator_ = blocking_allocator<HttpDownloader>::create(config.MaxThreads, [&]() {
-        auto client = make_shared<Client>(get<0>(url_parts));
-        auto downloader = new HttpDownloader(client, path_);
+        auto client = make_shared<Client>(url_parts.FullHost);
+        auto downloader = new HttpDownloader(client, url_parts.FullPath);
         auto callback = bind(&VirtualHttpFile::OnRequestEnded, this, placeholders::_1);
 
         downloader->SetRequestCallback(callback);

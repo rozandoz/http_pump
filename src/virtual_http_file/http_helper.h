@@ -4,7 +4,14 @@
 #include <string>
 #include <tuple>
 
-std::tuple<std::string, std::string> ParseUrl(const std::string &url)
+struct UrlParts
+{
+    std::string Url;
+    std::string FullHost;
+    std::string FullPath;
+};
+
+UrlParts ParseUrl(const std::string &url)
 {
     const std::string url_regex =
         "^(?:(?:(([^:\\/#\\?]+:)?(?:(?:\\/\\/)(?:(?:(?:([^:@\\/#\\?]+)(?:\\:([^:@\\/"
@@ -13,9 +20,12 @@ std::tuple<std::string, std::string> ParseUrl(const std::string &url)
 
     std::smatch match;
     std::regex regex(url_regex);
-    if (std::regex_match(url, match, regex) && match.size() >= 9)
-        return std::tuple<std::string, std::string>(match[1],
-                                                    std::string(match[8]) + std::string(match[9]));
+    if (!std::regex_match(url, match, regex)) throw std::invalid_argument("url");
 
-    throw std::invalid_argument("url");
+    UrlParts parts = {};
+    parts.Url = match.str(0);
+    parts.FullHost = match.str(1);
+    parts.FullPath = match[8].matched ? match.str(8) : "";
+    if (match[9].matched) parts.FullPath += match.str(9);
+    return parts;
 }
