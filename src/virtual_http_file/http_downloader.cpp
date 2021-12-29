@@ -26,6 +26,16 @@ HttpDownloader::RangeRequest::RangeRequest(const RangeRequest &request)
 {
 }
 
+shared_ptr<blocking_event> HttpDownloader::RangeRequest::cancel_event() const
+{
+    return cancel_event_;
+}
+
+const bool HttpDownloader::RangeRequest::is_cancelled() const
+{
+    return cancel_event_->wait(std::chrono::milliseconds(0));
+}
+
 Headers HttpDownloader::CreateRangeHeaders(size_t offset, size_t size)
 {
     auto range = make_range_header({{offset, offset + size}});
@@ -74,6 +84,7 @@ void HttpDownloader::OnRequestsThread()
 
         if (!request.is_cancelled())
         {
+
             auto header = CreateRangeHeaders(range.first, range.second);
             http_client_->Get(http_path_.c_str(), header, [&](const char *data, size_t size) {
                 if (request.is_cancelled()) return false;
@@ -88,7 +99,6 @@ void HttpDownloader::OnRequestsThread()
         }
 
         auto callback = request_callback_;
-
         if (callback) callback(request);
     }
 }

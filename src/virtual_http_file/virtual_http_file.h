@@ -20,8 +20,6 @@ class VirtualHttpFile
     const char *ContetnLengthKey = "Content-Length";
     const char *ContentTypKey = "Content-Type";
 
-    httplib::Headers CreateRangeHeaders(size_t offset, size_t size);
-
     struct Block
     {
         std::shared_ptr<cppf::memory::buffer> Buffer;
@@ -36,6 +34,8 @@ public:
         size_t CacheSize;
         size_t BlockSize;
         size_t MaxThreads;
+
+        void Validate() const;
     };
 
     explicit VirtualHttpFile();

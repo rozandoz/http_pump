@@ -6,11 +6,11 @@
 #include <string>
 #include <thread>
 
-#include "httplib.h"
-
 #include "cppf/memory/blocking_queue.h"
 #include "cppf/memory/buffer.h"
 #include "cppf/threading/blocking_event.h"
+
+#include "httplib.h"
 
 class HttpDownloader
 {
@@ -26,15 +26,8 @@ public:
 
         std::shared_ptr<cppf::memory::buffer> buffer() const { return buffer_; }
         std::pair<size_t, size_t> range() const { return range_; }
-        std::shared_ptr<cppf::threading::blocking_event> cancel_event() const
-        {
-            return cancel_event_;
-        }
-
-        const bool is_cancelled() const
-        {
-            return cancel_event_->wait(std::chrono::milliseconds(0));
-        }
+        std::shared_ptr<cppf::threading::blocking_event> cancel_event() const;
+        const bool is_cancelled() const;
 
     private:
         RangeRequest() = default;
@@ -46,10 +39,9 @@ public:
 
     typedef std::function<void(const RangeRequest &request)> RequestCallback;
 
-private:
+public:
     httplib::Headers CreateRangeHeaders(size_t offset, size_t size);
 
-public:
     explicit HttpDownloader(const std::shared_ptr<httplib::Client> &client,
                             const std::string &path);
     virtual ~HttpDownloader();
